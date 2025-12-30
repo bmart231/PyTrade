@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from math import sqrt
-from statistics import mean, pstdev
-
+import numpy as np
 # import Bar class (Bar.py) to use as input
 from .Bars import Bar
 
@@ -39,32 +37,38 @@ class FeatureEngine:
         self.slow = slow # get slow value
         self.vol_window = vol_window # get volatility window
 
-        self._closes = deque(maxlen=slow) # store close prices
-        self._rets = deque(maxlen=vol_window) # store returns
+        self.static_closes = deque(maxlen=slow) # store close prices
+        self.static_returns = deque(maxlen=vol_window) # store returns
 
-        self._last_bar: Bar | None = None # last bar seen
-        self._last_close: float | None = None # last close price
+        self.last_bar: Bar | None = None # last bar seen
+        self.last_close: float | None = None # last close price
 
     def update(self, bar: Bar) -> None:
         """Push a new bar into the rolling windows."""
-        c = float(bar.close)
+        current_close_price = float(bar.close)
+        previous_close_price = self.last_close
 
         # compute 1-step return
-        if self._last_close is not None:
-            r = (c / self._last_close) - 1.0
-            self._rets.append(r)
+        if self._last_close is not None: 
+            # return calculation
+            returns = (current_close_price / previous_close_price) - 1.0
+            # append return to deque 
+            self.static_returns.append(returns)
 
-        self._closes.append(c)
-        self._last_close = c
-        self._last_bar = bar
+        # append close price to deque
+        self.static_closes.append(current_close_price) # appen close price
+        self.last_close = current_close_price # update last close price
+        self.last_bar = bar # update last bar seen
 
+    # computes the current features from rolling windows 
     def snapshot(self) -> FeatureSnapshot:
         """Compute current features from rolling windows."""
-        if self._last_bar is None:
+        if self.last_bar is None:
             return FeatureSnapshot(
-                symbol="",
-                ts=None,
-                close=float("nan"),
+                # setting everything to unknown / None
+                symbol="", # unknown symbol 
+                ts=None, # unknown timestamp
+                close=float("nan"), # unknown close price
                 sma_fast=None,
                 sma_slow=None,
                 ret_1=None,
@@ -73,26 +77,28 @@ class FeatureEngine:
             )
 
         # SMAs
-        sma_fast = mean(list(self._closes)[-self.fast:]) if len(self._closes) >= self.fast else None
-        sma_slow = mean(self._closes) if len(self._closes) >= self.slow else None
+        close_price_indexes = list(self.static_closes)
+        length = len(close_price_indexes) # length of close prices indexes
+        
+
+        sma_fast = np.mean(close_price_indexes[-self.fast:]) if length >= self.fast else None
+        sma_slow = np.mean(close_price_indexes[-self.slow:]) if length >= self.slow else None
 
         # last return
-        ret_1 = self._rets[-1] if len(self._rets) >= 1 else None
-
+        last_return = self.static_returns[-1] if len(self.static_returns) >= 1 else None
         # rolling volatility of returns (scaled by sqrt(n) as a rough magnitude)
         vol = None
-        if len(self._rets) >= max(5, self.vol_window // 3):
-            vol = pstdev(self._rets) * sqrt(len(self._rets))
-
+        if len(self.static_returns) >= max(5, self.vol_window // 3):
+            vol = np.std(self.static_returns) * np.sqrt(len(self.static_returns))
         ready = (sma_fast is not None) and (sma_slow is not None)
 
         return FeatureSnapshot(
-            symbol=self._last_bar.symbol,
-            ts=self._last_bar.ts,
-            close=float(self._last_bar.close),
+            symbol=self.last_bar.symbol,
+            ts=self.last_bar.ts,
+            close=float(self.last_bar.close),
             sma_fast=sma_fast,
             sma_slow=sma_slow,
-            ret_1=ret_1,
+            ret_1=last_return,
             vol=vol,
             ready=ready,
         )
