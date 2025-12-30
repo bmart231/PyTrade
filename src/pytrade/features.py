@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-import numpy as np
-# import Bar class (Bar.py) to use as input
+import numpy as np # import Bar class (Bar.py) to use as input
 from .Bars import Bar
 
 # Goal: compute rolling indicators from incoming bars created in Data.py
@@ -49,7 +48,7 @@ class FeatureEngine:
         previous_close_price = self.last_close
 
         # compute 1-step return
-        if self._last_close is not None: 
+        if previous_close_price is not None: 
             # return calculation
             returns = (current_close_price / previous_close_price) - 1.0
             # append return to deque 
@@ -81,8 +80,8 @@ class FeatureEngine:
         length = len(close_price_indexes) # length of close prices indexes
         
 
-        sma_fast = np.mean(close_price_indexes[-self.fast:]) if length >= self.fast else None
-        sma_slow = np.mean(close_price_indexes[-self.slow:]) if length >= self.slow else None
+        sma_fast = np.float64(np.mean(close_price_indexes[-self.fast:])) if length >= self.fast else None
+        sma_slow = np.float64(np.mean(close_price_indexes[-self.slow:])) if length >= self.slow else None
 
         # last return
         last_return = self.static_returns[-1] if len(self.static_returns) >= 1 else None
