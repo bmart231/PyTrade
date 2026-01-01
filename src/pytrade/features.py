@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 import numpy as np # import Bar class (Bar.py) to use as input
-from .Bars import Bar
+from .bars import Bar
 
 # Goal: compute rolling indicators from incoming bars created in Data.py
 
@@ -36,8 +36,8 @@ class FeatureEngine:
         self.slow = slow # get slow value
         self.vol_window = vol_window # get volatility window
 
-        self.static_closes = deque(maxlen=slow) # store close prices
-        self.static_returns = deque(maxlen=vol_window) # store returns
+        self.rolling_closes = deque(maxlen=slow) # store close prices
+        self.rolling_returns = deque(maxlen=vol_window) # store returns
 
         self.last_bar: Bar | None = None # last bar seen
         self.last_close: float | None = None # last close price
@@ -52,10 +52,10 @@ class FeatureEngine:
             # return calculation
             returns = (current_close_price / previous_close_price) - 1.0
             # append return to deque 
-            self.static_returns.append(returns)
+            self.rolling_returns.append(returns)
 
         # append close price to deque
-        self.static_closes.append(current_close_price) # appen close price
+        self.rolling_closes.append(current_close_price) # appen close price
         self.last_close = current_close_price # update last close price
         self.last_bar = bar # update last bar seen
 
@@ -76,7 +76,7 @@ class FeatureEngine:
             )
 
         # SMAs
-        close_price_indexes = list(self.static_closes)
+        close_price_indexes = list(self.rolling_closes)
         length = len(close_price_indexes) # length of close prices indexes
         
 
@@ -84,13 +84,17 @@ class FeatureEngine:
         sma_slow = np.float64(np.mean(close_price_indexes[-self.slow:])) if length >= self.slow else None
 
         # last return
-        last_return = self.static_returns[-1] if len(self.static_returns) >= 1 else None
+        last_return = self.rolling_returns[-1] if len(self.rolling_returns) >= 1 else None
         # rolling volatility of returns (scaled by sqrt(n) as a rough magnitude)
         vol = None
-        if len(self.static_returns) >= max(5, self.vol_window // 3):
-            vol = np.std(self.static_returns) * np.sqrt(len(self.static_returns))
+        # ensure enough data points for volatility
+        if len(self.rolling_returns) >= max(5, self.vol_window // 3):
+            # volatility calculation
+            vol = np.std(self.rolling_returns) * np.sqrt(len(self.rolling_returns))
+        # are indicators ready?
         ready = (sma_fast is not None) and (sma_slow is not None)
 
+        # returns the current snapshot of features with all the computed values
         return FeatureSnapshot(
             symbol=self.last_bar.symbol,
             ts=self.last_bar.ts,
@@ -98,6 +102,6 @@ class FeatureEngine:
             sma_fast=sma_fast,
             sma_slow=sma_slow,
             ret_1=last_return,
-            vol=vol,
+            vol=np.float64(vol) if vol is not None else None,
             ready=ready,
         )
