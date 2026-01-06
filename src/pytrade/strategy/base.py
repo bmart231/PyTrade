@@ -15,8 +15,8 @@ class Signal(str, Enum):
 # decision output from a strategy, takes in signal and reason
 @dataclass(frozen=True)
 class Decision:
-    signal: Signal 
-    reason: str
+    signal: Signal # trading signal (Buy, Sell, Hold)
+    reason: str # reason (string)
 
 
 # base strategy interface (all strategies should implement decide)

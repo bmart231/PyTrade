@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 import numpy as np # import Bar class (Bar.py) to use as input
-from .bars import Bar
+from .models import Bar
 
 # Goal: compute rolling indicators from incoming bars created in Data.py
 
