@@ -38,6 +38,7 @@ async def run() -> None:
 
         # log the bar info, features, and decision made
         logging.info(
+            "Time: %s | Close: %.2f | SMA_fast: %s | SMA_slow: %s | Decision: %s | Reason: %s",
             bar.ts, # timestamp
             bar.close, # close price
             None if snapshot.sma_fast is None else f"{np.round(snapshot.sma_fast, 4)}", # SMA fast
